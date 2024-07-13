@@ -4,6 +4,7 @@ import { z } from "zod"
 import { prisma } from "../lib/prisma";
 import nodemailer from "nodemailer"
 import { getMailClient } from "../lib/mail";
+import { formatDate } from "../lib/formatDate";
 
 export async function createTrip(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().post('/trips', {
@@ -52,10 +53,6 @@ export async function createTrip(app: FastifyInstance) {
         const confirmationLink = `http://localhost:3000/trips/${trip.id}/confirm`
 
         const mail = await getMailClient();
-
-        const locale = 'en-US';
-
-        const formatDate = (date: Date) => new Intl.DateTimeFormat(locale, { dateStyle: 'long', }).format(date);
 
         const formattedStartDate = formatDate(starts_at);
         const formattedEndDate = formatDate(ends_at);
