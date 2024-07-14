@@ -3,6 +3,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod"
 import { z } from "zod"
 import { prisma } from "../lib/prisma";
 import { diffDates } from "../lib/diffDates";
+import { ClientError } from "../../errors/client-error";
 
 export async function getActivities(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().get('/trips/:tripId/activities', {
@@ -29,7 +30,7 @@ export async function getActivities(app: FastifyInstance) {
 
 
         if (!trip) {
-            throw new Error('trip not found')
+            throw new ClientError('trip not found')
         }
 
         const diffBetweenStartEnd = diffDates(trip.starts_at, trip.ends_at);

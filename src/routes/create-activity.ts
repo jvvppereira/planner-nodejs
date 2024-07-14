@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify"
 import { ZodTypeProvider } from "fastify-type-provider-zod"
 import { z } from "zod"
 import { prisma } from "../lib/prisma";
+import { ClientError } from "../../errors/client-error";
 
 export async function createActivity(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().post('/trips/:tripId/activities', {
@@ -26,16 +27,16 @@ export async function createActivity(app: FastifyInstance) {
 
 
         if (!trip) {
-            throw new Error('trip not found')
+            throw new ClientError('trip not found')
         }
 
 
         if (occurs_at < trip.starts_at) {
-            throw new Error('invalid activity date')
+            throw new ClientError('invalid activity date')
         }
 
         if (occurs_at > trip.ends_at) {
-            throw new Error('invalid activity date')
+            throw new ClientError('invalid activity date')
         }
 
         const activity = await prisma.activity.create({
@@ -45,7 +46,6 @@ export async function createActivity(app: FastifyInstance) {
                 trip_id: tripId
             }
         })
-
 
         return {
             activityId: activity.id

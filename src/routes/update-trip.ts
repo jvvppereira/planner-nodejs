@@ -4,20 +4,21 @@ import { z } from "zod"
 import { prisma } from "../lib/prisma";
 import { ClientError } from "../../errors/client-error";
 
-export async function createLink(app: FastifyInstance) {
-    app.withTypeProvider<ZodTypeProvider>().post('/trips/:tripId/links', {
+export async function updateTrip(app: FastifyInstance) {
+    app.withTypeProvider<ZodTypeProvider>().put('/trips/:tripId', {
         schema: {
             params: z.object({
                 tripId: z.string().uuid()
             }),
             body: z.object({
-                title: z.string().min(4),
-                url: z.string().url(),
+                destination: z.string().min(4),
+                starts_at: z.coerce.date(),
+                ends_at: z.coerce.date(),
             })
         }
     }, async (request) => {
         const { tripId } = request.params;
-        const { title, url } = request.body;
+        const { destination, starts_at, ends_at } = request.body;
 
         const trip = await prisma.trip.findUnique({
             where: {
@@ -29,16 +30,29 @@ export async function createLink(app: FastifyInstance) {
             throw new ClientError('trip not found')
         }
 
-        const link = await prisma.link.create({
+
+        if (starts_at < new Date()) {
+            throw new ClientError('invalid start date')
+        }
+
+        if (ends_at < starts_at) {
+            throw new ClientError('invalid end date')
+        }
+
+
+        await prisma.trip.update({
+            where: {
+                id: tripId
+            }, 
             data: {
-                title,
-                url,
-                trip_id: tripId
+                destination,
+                starts_at,
+                ends_at
             }
         })
 
         return {
-            linkId: link.id
+            tripId: trip.id
         }
     })
 }
