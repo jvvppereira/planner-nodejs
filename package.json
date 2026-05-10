@@ -18,7 +18,7 @@
   "dependencies": {
     "@fastify/cors": "^9.0.1",
     "@prisma/client": "^5.16.2",
-    "fastify": "^4.28.1",
+    "fastify": "^5.8.5",
     "fastify-type-provider-zod": "^2.0.0",
     "nodemailer": "^8.0.5",
     "prisma": "^5.16.2"
