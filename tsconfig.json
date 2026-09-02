@@ -13,6 +13,6 @@
     "skipLibCheck": true,
     "moduleResolution": "node16"
   },
-  "include": ["src/**/*", "errors/**/*"],
+  "include": ["src/**/*", "errors/**/*", "api/**/*"],
   "exclude": ["node_modules", "dist"]
 }
