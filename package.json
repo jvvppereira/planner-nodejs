@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "npx tsx watch src/server.ts",
     "build": "prisma generate && tsc",
+    "postbuild": "prisma migrate deploy",
+    "vercel-build": "npm run build",
     "start": "node dist/src/server.js"
   },
   "keywords": [],
