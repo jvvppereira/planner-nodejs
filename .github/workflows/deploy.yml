@@ -25,7 +25,7 @@ jobs:
 
       - name: Run migrations
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_DIRECT }}
           PGSSLMODE: require
         run: npx prisma migrate deploy
         timeout-minutes: 10
