@@ -15,7 +15,7 @@ The project uses the following technologies:
 
 ### **Data Persistence**
 - **[Prisma](https://www.prisma.io/)**: Modern ORM (Object-Relational Mapping) for Node.js and TypeScript.
-- **PostgreSQL**: Production database (via Docker locally, managed service on Vercel).
+- **PostgreSQL**: Production database (via Docker locally, managed service on Vercel/Supabase).
 
 ### **Validation and Typing**
 - **[Zod](https://zod.dev/)**: Schema declaration and validation library with a focus on TypeScript (v4).
@@ -56,17 +56,29 @@ docker run -d --name planner-db \
 ```
 
 ### 3. Configure environment variables
-Create a `.env` file:
+Create a `.env` file with **two database URLs**:
+
 ```env
-DATABASE_URL="postgresql://planner:planner@localhost:5432/planner?schema=public"
+# Pooled connection (PgBouncer, port 6543) - used for runtime
+DATABASE_URL="postgresql://postgres.gmlipfddxutviyjiinrv:<PASSWORD>@aws-0-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
+
+# Direct connection (port 5432) - used for migrations
+DIRECT_URL="postgresql://postgres:<PASSWORD>@db.gmlipfddxutviyjiinrv.supabase.co:5432/postgres?sslmode=require"
+
 API_BASE_URL="http://localhost:3000"
 WEB_BASE_URL="http://localhost:3000"
 PORT=3000
 ```
 
+> **Local development**: You can use the direct connection for both by setting `DATABASE_URL` to the direct URL.
+
 ### 4. Run database migrations
 ```bash
+# For development (creates new migration)
 npx prisma migrate dev --name init
+
+# For production/CI (applies pending migrations)
+npm run db:migrate
 ```
 
 ### 5. Start the development server
@@ -84,19 +96,65 @@ The API will be available at `http://localhost:3000`.
 ```bash
 npm run build
 ```
-Runs: `prisma generate` → `tsc` → `prisma migrate deploy`
+Runs: `prisma generate` → `tsc` (TypeScript compilation)
 
-### Deploy to Vercel
-1. Push to GitHub
-2. Import project in Vercel
-3. Add Environment Variables (Production):
-   - `DATABASE_URL` — PostgreSQL connection string (use connection pooler, port 6543, with `?connection_limit=1&pool_timeout=0&sslmode=require`)
-   - `API_BASE_URL` — Your Vercel URL (e.g., `https://your-app.vercel.app`)
-   - `WEB_BASE_URL` — Frontend URL
-   - `NODE_ENV=production`
-4. Deploy
+> **Note**: Migrations are **not** run during build. They run in the CI pipeline before deployment.
 
-Vercel runs `npm run vercel-build` which executes the full build pipeline including migrations.
+### Available Scripts
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Generate Prisma Client + compile TypeScript |
+| `npm run vercel-build` | Alias for `build` (used by Vercel) |
+| `npm run db:migrate` | Run `prisma migrate deploy` |
+| `npm start` | Run production build from `dist/` |
+
+---
+
+## 🚀 CI/CD Pipeline (GitHub Actions → Vercel)
+
+### Workflow Overview
+```
+Push to main → GitHub Actions → (1) npm ci
+                              → (2) prisma generate
+                              → (3) prisma migrate deploy (via pooled connection)
+                              → (4) npm run build
+                              → (5) Deploy to Vercel
+```
+
+### Required GitHub Secrets
+| Secret | Description |
+|--------|-------------|
+| `DATABASE_URL` | **Pooled** connection string (PgBouncer, port 6543) with `pgbouncer=true` |
+| `DIRECT_URL` | **Direct** connection string (port 5432) — optional, not used in current CI |
+| `VERCEL_TOKEN` | Vercel access token |
+| `VERCEL_ORG_ID` | Vercel organization/team ID |
+| `VERCEL_PROJECT_ID` | Vercel project ID |
+
+### Why Migrations Run in CI (Not Vercel Build)
+- **Timeout**: Vercel build max 45 min (Pro) / 5 min (Hobby); migrations can exceed this
+- **Network**: Vercel build IPs are dynamic; Supabase direct connection requires allow-listed IPs
+- **Reliability**: Separate CI step provides better logs, retry capability, and rollback control
+- **Pooled connection**: CI uses the PgBouncer URL (port 6543) which accepts any IP
+
+### Vercel Configuration
+`vercel.json` uses `vercel-build` script and rewrites all requests to the serverless entry point:
+
+```json
+{
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": null,
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}
+```
+
+### Deploy Steps
+1. Push to GitHub (triggers workflow)
+2. GitHub Actions runs migrations + build + deploys to Vercel
+3. Vercel runs `npm run vercel-build` (compile only) and serves from `dist/`
 
 ---
 
@@ -114,9 +172,31 @@ api/
 └── index.ts         # Vercel serverless entry point
 
 prisma/
-├── schema.prisma    # Database schema (PostgreSQL)
+├── schema.prisma    # Database schema (PostgreSQL, uses url + directUrl)
 └── migrations/      # Migration history
+
+.github/workflows/
+└── deploy.yml       # CI/CD pipeline
 ```
+
+---
+
+## 🔧 Database Connection Details
+
+The Prisma schema uses both pooled and direct URLs:
+
+```prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // Pooled (PgBouncer) - runtime
+  directUrl = env("DIRECT_URL")        // Direct - migrations
+}
+```
+
+| Connection | Port | Use Case | IP Restrictions |
+|------------|------|----------|-----------------|
+| **Pooled (DATABASE_URL)** | 6543 | Runtime (Vercel, CI) | None (works from any IP) |
+| **Direct (DIRECT_URL)** | 5432 | Migrations (local, CI) | Requires allow-list in Supabase |
 
 ---
 
