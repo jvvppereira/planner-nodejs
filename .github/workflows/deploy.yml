@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   migrate-and-deploy:
     runs-on: ubuntu-latest
