@@ -22,22 +22,16 @@ jobs:
       - run: npm ci
 
       - name: Generate Prisma Client
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npx prisma generate
 
       - name: Run migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npx prisma migrate deploy
         timeout-minutes: 10
 
       - name: Build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npm run build
 
       - name: Deploy to Vercel
